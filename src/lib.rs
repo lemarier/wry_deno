@@ -10,22 +10,25 @@ use deno_core::serde_json::json;
 use deno_core::serde_json::Value;
 use deno_json_op::json_op;
 
+use winit::dpi::Size;
 use winit::platform::run_return::EventLoopExtRunReturn;
 use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::Window,
 };
 
-use wry::webview::{WebView, WebViewBuilder};
+use wry::webview::{RpcRequest, WebView, WebViewBuilder};
 
 mod event;
 mod helpers;
 use event::Event;
+use helpers::{SizeDef, WebViewStatus};
 
 thread_local! {
   static INDEX: RefCell<u64> = RefCell::new(0);
   static EVENT_LOOP: RefCell<EventLoop<()>> = RefCell::new(EventLoop::new());
   static WEBVIEW_MAP: RefCell<HashMap<u64, WebView>> = RefCell::new(HashMap::new());
+  static WEBVIEW_STATUS: RefCell<HashMap<u64, WebViewStatus>> = RefCell::new(HashMap::new());
   static STACK_MAP: RefCell<HashMap<u64, Vec<event::Event>>> = RefCell::new(HashMap::new());
 }
 
@@ -34,6 +37,10 @@ pub fn deno_plugin_init(interface: &mut dyn Interface) {
     interface.register_op("wry_new", wry_new);
     interface.register_op("wry_loop", wry_loop);
     interface.register_op("wry_step", wry_step);
+    interface.register_op("wry_set_minimized", wry_set_minimized);
+    interface.register_op("wry_set_maximized", wry_set_maximized);
+    interface.register_op("wry_set_visible", wry_set_visible);
+    interface.register_op("wry_set_inner_size", wry_set_inner_size);
 }
 
 #[json_op]
@@ -50,15 +57,38 @@ fn wry_new(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyErro
         EVENT_LOOP.with(|cell| {
             let event_loop = cell.borrow();
             let window = Window::new(&event_loop)?;
+
             let webview = WebViewBuilder::new(window)
                 .unwrap()
-                .initialize_script("menacing = 'ゴ';")
+                .initialize_script("function __rpcDomContentLoaded() {rpc.call(\"domContentLoaded\", null);};window.addEventListener(\"DOMContentLoaded\", function () {__rpcDomContentLoaded();});")
                 .load_url(url)?
+                .set_rpc_handler(Box::new(move |req: RpcRequest| {
+
+                  let response = None;
+                  if &req.method == "domContentLoaded" {
+                    STACK_MAP.with(|cell| {
+
+                      let mut stack_map = cell.borrow_mut();
+                      if let Some(stack) = stack_map.get_mut(&id) {
+                          stack.push(Event::DomContentLoaded);
+                      } else {
+                          panic!("Could not find stack with id {} to push onto stack", id);
+                      }
+                  });
+                  }
+                  response
+                }))
                 .build()?;
 
             webviews.insert(id, webview);
             STACK_MAP.with(|cell| {
                 cell.borrow_mut().insert(id, Vec::new());
+            });
+
+            // Set status to Initialized
+            // on next loop we will mark this as window created
+            WEBVIEW_STATUS.with(|cell| {
+              cell.borrow_mut().insert(id, WebViewStatus::Initialized);
             });
 
             Ok(json!(id))
@@ -86,7 +116,6 @@ fn wry_loop(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyErr
                             event: winit::event::WindowEvent::CloseRequested,
                             ..
                         } => {
-                            *control_flow = ControlFlow::Exit;
                             should_stop_loop = true;
                         }
                         winit::event::Event::WindowEvent {
@@ -101,6 +130,28 @@ fn wry_loop(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyErr
                         winit::event::Event::RedrawRequested(_) => {}
                         _ => (),
                     };
+
+                    // set this webview as WindowCreated if needed
+                    WEBVIEW_STATUS.with(|cell| {
+                        let mut status_map = cell.borrow_mut();
+                        if let Some(status) = status_map.get_mut(&id) {
+                            match status {
+                                &mut WebViewStatus::Initialized => {
+                                    *status = WebViewStatus::WindowCreated;
+                                    STACK_MAP.with(|cell| {
+
+                              let mut stack_map = cell.borrow_mut();
+                              if let Some(stack) = stack_map.get_mut(&id) {
+                                  stack.push(Event::WindowCreated);
+                              } else {
+                                  panic!("Could not find stack with id {} to push onto stack", id);
+                              }
+                          });
+                                }
+                                _ => {}
+                            };
+                        }
+                    });
                 }
             });
 
@@ -108,7 +159,13 @@ fn wry_loop(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyErr
             STACK_MAP.with(|cell| {
                 let mut stack_map = cell.borrow_mut();
                 if let Some(stack) = stack_map.get_mut(&id) {
-                    stack.push(Event::from(event));
+                    let wry_event = Event::from(event);
+                    match wry_event {
+                        Event::Undefined => {}
+                        _ => {
+                            stack.push(wry_event);
+                        }
+                    };
                 } else {
                     panic!("Could not find stack with id {} to push onto stack", id);
                 }
@@ -128,6 +185,72 @@ fn wry_step(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyErr
             let ret = stack.clone();
             stack.clear();
             Ok(json!(ret))
+        } else {
+            Err(anyhow!("Could not find stack with id: {}", id))
+        }
+    })
+}
+
+#[json_op]
+fn wry_set_minimized(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyError> {
+    let minimized = json["minimized"].as_bool().unwrap();
+    let id = json["id"].as_u64().unwrap();
+    WEBVIEW_MAP.with(|cell| {
+        let webview_map = cell.borrow();
+
+        if let Some(webview) = webview_map.get(&id) {
+            webview.window().set_minimized(minimized);
+            Ok(json!(true))
+        } else {
+            Err(anyhow!("Could not find stack with id: {}", id))
+        }
+    })
+}
+
+#[json_op]
+fn wry_set_maximized(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyError> {
+    let maximized = json["maximized"].as_bool().unwrap();
+    let id = json["id"].as_u64().unwrap();
+    WEBVIEW_MAP.with(|cell| {
+        let webview_map = cell.borrow();
+
+        if let Some(webview) = webview_map.get(&id) {
+            webview.window().set_maximized(maximized);
+            Ok(json!(true))
+        } else {
+            Err(anyhow!("Could not find stack with id: {}", id))
+        }
+    })
+}
+
+#[json_op]
+fn wry_set_inner_size(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyError> {
+    let size: Size = SizeDef::deserialize(json["size"].to_owned()).unwrap();
+    let id = json["id"].as_u64().unwrap();
+    WEBVIEW_MAP.with(|cell| {
+        let webview_map = cell.borrow();
+
+        if let Some(webview) = webview_map.get(&id) {
+            println!("{:?}", size);
+
+            webview.window().set_inner_size(size);
+            Ok(json!(true))
+        } else {
+            Err(anyhow!("Could not find stack with id: {}", id))
+        }
+    })
+}
+
+#[json_op]
+fn wry_set_visible(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyError> {
+    let visible = json["visible"].as_bool().unwrap();
+    let id = json["id"].as_u64().unwrap();
+    WEBVIEW_MAP.with(|cell| {
+        let webview_map = cell.borrow();
+
+        if let Some(webview) = webview_map.get(&id) {
+            webview.window().set_visible(visible);
+            Ok(json!(true))
         } else {
             Err(anyhow!("Could not find stack with id: {}", id))
         }

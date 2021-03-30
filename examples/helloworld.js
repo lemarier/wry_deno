@@ -6,7 +6,7 @@ const wryApplication = new Wry("http://localhost:8080");
 const oakApplication = new Oak();
 
 oakApplication.use((ctx) => {
-  ctx.response.body = "Hello World!";
+  ctx.response.body = `Deno: ${Deno.version.deno} Typescript: ${Deno.version.typescript}`;
 });
 
 // using OAK without blocking the thread
@@ -21,5 +21,12 @@ wryApplication.run(({event}) => {
   switch (event) {
     case 'close':
       Deno.exit()
-  }
-}, 1)
+      break;
+    case 'windowCreated':
+      console.log("It works! Window created");
+      break;
+    case 'domContentLoaded':
+      console.log("It works! domContentLoaded")
+      break;
+    }
+});

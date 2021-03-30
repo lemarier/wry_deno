@@ -1,9 +1,18 @@
-use std::collections::hash_map::DefaultHasher;
-use std::hash::Hash;
-use std::hash::Hasher;
+use deno_core::serde::{Deserialize, Serialize};
+use winit::dpi::LogicalSize;
+use winit::dpi::PhysicalSize;
+use winit::dpi::Size;
 
-pub fn hash<T: Hash>(t: T) -> u64 {
-    let mut s = DefaultHasher::new();
-    t.hash(&mut s);
-    s.finish()
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase", tag = "event")]
+pub enum WebViewStatus {
+    Initialized,
+    WindowCreated,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", remote = "Size")]
+pub enum SizeDef {
+    Physical(PhysicalSize<u32>),
+    Logical(LogicalSize<f64>),
 }
