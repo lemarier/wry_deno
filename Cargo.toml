@@ -1,0 +1,16 @@
+[package]
+name = "wry_deno"
+version = "0.1.0"
+authors = ["David Lemarier <david@lemarier.ca>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+deno_core = "0.77.1"
+deno_json_op = "0.1.1"
+wry = "0.6"
+winit = "0.24.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_millis = "0.1.1"
