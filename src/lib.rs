@@ -60,10 +60,11 @@ fn wry_new(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyErro
 
             let webview = WebViewBuilder::new(window)
                 .unwrap()
+                // inject a DOMContentLoaded listener to send a RPC request
                 .initialize_script("function __rpcDomContentLoaded() {rpc.call(\"domContentLoaded\", null);};window.addEventListener(\"DOMContentLoaded\", function () {__rpcDomContentLoaded();});")
                 .load_url(url)?
                 .set_rpc_handler(Box::new(move |req: RpcRequest| {
-
+                  // this is a sample RPC test to check if we can get everything to work together
                   let response = None;
                   if &req.method == "domContentLoaded" {
                     STACK_MAP.with(|cell| {
@@ -99,8 +100,6 @@ fn wry_new(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyErro
 #[json_op]
 fn wry_loop(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyError> {
     let id = json["id"].as_u64().unwrap();
-
-    //println!("ID {}", id);
     let mut should_stop_loop = false;
     EVENT_LOOP.with(|cell| {
         let event_loop = &mut *cell.borrow_mut();

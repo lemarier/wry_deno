@@ -23,7 +23,7 @@ wryApplication.run(({event}) => {
       Deno.exit()
       break;
     case 'windowCreated':
-      console.log("It works! Window created");
+      console.log("It works! Window created , if webview didn't show, try to resize window");
       break;
     case 'domContentLoaded':
       console.log("It works! domContentLoaded")
