@@ -2155,7 +2155,7 @@ dependencies = [
 
 [[package]]
 name = "wry_deno"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "deno_core",
  "deno_json_op",
