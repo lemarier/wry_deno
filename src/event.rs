@@ -11,6 +11,7 @@ pub enum Event {
     Resumed,
 }
 
+#[cfg(not(target_os = "linux"))]
 impl From<winit::event::Event<'_, ()>> for Event {
     fn from(event: winit::event::Event<()>) -> Self {
         match event {
