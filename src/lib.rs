@@ -27,8 +27,12 @@ use wry::webview::{RpcRequest, WebView, WebViewBuilder};
 
 mod event;
 mod helpers;
+
 use event::Event;
-use helpers::{SizeDef, WebViewStatus};
+use helpers::WebViewStatus;
+
+#[cfg(target_os = "linux")]
+use helpers::SizeDef;
 
 thread_local! {
     static INDEX: RefCell<u64> = RefCell::new(0);
@@ -49,6 +53,7 @@ pub fn deno_plugin_init(interface: &mut dyn Interface) {
     interface.register_op("wry_set_minimized", wry_set_minimized);
     interface.register_op("wry_set_maximized", wry_set_maximized);
     interface.register_op("wry_set_visible", wry_set_visible);
+    #[cfg(not(target_os = "linux"))]
     interface.register_op("wry_set_inner_size", wry_set_inner_size);
 }
 
@@ -307,6 +312,7 @@ fn wry_set_maximized(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Valu
     })
 }
 
+#[cfg(not(target_os = "linux"))]
 #[json_op]
 fn wry_set_inner_size(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyError> {
     let size: Size = SizeDef::deserialize(json["size"].to_owned()).unwrap();
