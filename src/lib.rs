@@ -31,7 +31,7 @@ mod helpers;
 use event::Event;
 use helpers::WebViewStatus;
 
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "linux"))]
 use helpers::SizeDef;
 
 thread_local! {
