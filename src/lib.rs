@@ -47,11 +47,18 @@ thread_local! {
 
 #[no_mangle]
 pub fn deno_plugin_init(interface: &mut dyn Interface) {
+    // main Ops who should be merged into 1 so they can share the same opstate and we
+    // ca remove our thread_local pollution
     interface.register_op("wry_new", wry_new);
     interface.register_op("wry_loop", wry_loop);
     interface.register_op("wry_step", wry_step);
+
+    // disable that on linux for now, we need to bind different functions
+    #[cfg(not(target_os = "linux"))]
     interface.register_op("wry_set_minimized", wry_set_minimized);
+    #[cfg(not(target_os = "linux"))]
     interface.register_op("wry_set_maximized", wry_set_maximized);
+    #[cfg(not(target_os = "linux"))]
     interface.register_op("wry_set_visible", wry_set_visible);
     #[cfg(not(target_os = "linux"))]
     interface.register_op("wry_set_inner_size", wry_set_inner_size);
@@ -280,6 +287,7 @@ fn wry_step(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyErr
     })
 }
 
+#[cfg(not(target_os = "linux"))]
 #[json_op]
 fn wry_set_minimized(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyError> {
     let minimized = json["minimized"].as_bool().unwrap();
@@ -296,6 +304,7 @@ fn wry_set_minimized(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Valu
     })
 }
 
+#[cfg(not(target_os = "linux"))]
 #[json_op]
 fn wry_set_maximized(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyError> {
     let maximized = json["maximized"].as_bool().unwrap();
@@ -329,6 +338,7 @@ fn wry_set_inner_size(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Val
     })
 }
 
+#[cfg(not(target_os = "linux"))]
 #[json_op]
 fn wry_set_visible(json: Value, _zero_copy: &mut [ZeroCopyBuf]) -> Result<Value, AnyError> {
     let visible = json["visible"].as_bool().unwrap();
