@@ -1,15 +1,3 @@
-## wry deno bindings
-
-Attention this is only a proof of concept. API will changes in a close futures.
-You can use it for fun tho!
-
-```bash
-deno run --unstable -A https://raw.githubusercontent.com/lemarier/wry-deno/main/examples/helloworld.js
-```
-
-## Example
-
-```typescript
 import { Wry } from "https://raw.githubusercontent.com/lemarier/wry_deno/main/mod.ts";
 import { listenAndServe } from "https://deno.land/std/http/server.ts";
 
@@ -32,8 +20,3 @@ wryApplication.run(({event}) => {
       break;
     }
 });
-```
-
-### Known issue:
-- [ ] Window need to be resized to load the webview on macos.
-- [x] Linux build do not works as it didnt use winit.

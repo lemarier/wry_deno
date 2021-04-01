@@ -1,6 +1,6 @@
 [package]
 name = "wry_deno"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["David Lemarier <david@lemarier.ca>"]
 edition = "2018"
 
@@ -10,7 +10,17 @@ crate-type = ["cdylib"]
 [dependencies]
 deno_core = "0.77.1"
 deno_json_op = "0.1.1"
-wry = "0.6"
-winit = { version = "0.24.0", features = ["serde"] } 
+wry = "0.6.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_millis = "0.1.1"
+
+[target."cfg(target_os = \"linux\")".dependencies]
+webkit2gtk = { version = "0.11", features = [ "v2_8" ] }
+gtk = "0.9"
+gio = "0.9"
+
+[target."cfg(target_os = \"windows\")".dependencies]
+tauri-winit = { version = "0.24", features = ["serde"] } 
+
+[target."cfg(target_os = \"macos\")".dependencies]
+tauri-winit = { version = "0.24", features = ["serde"] } 
